@@ -748,55 +748,40 @@
 
 
         <script>
-            function enviarCheckIn() {
-              const element = document.getElementById('checkin-form');
-			  
-			  document.querySelectorAll('.no-print').forEach(el => el.style.display = 'none');
+function enviarCheckIn() {
+    const element = document.getElementById('checkin-form');
 
-              const opt = {
-                margin:       0,
-                filename:     'checkin.pdf',
-                image:        { type: 'jpeg', quality: 0.98 },
-                html2canvas:  { scale: 2 },
-                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
-              };
-        
-              // Gera e baixa o PDF
-              html2pdf().set(opt).from(element).save().then(() => {
-                // Abre o pop-up/modal após o download
-                document.getElementById('emailModal').style.display = "flex";
-              });
-			  html2pdf().from(element).set(opt).save().then(() => {
-			  
-        // Mostra os elementos novamente após a conversão
-        document.querySelectorAll('.no-print').forEach(el => el.style.display = '');
+    document.querySelectorAll('.no-print').forEach(el => el.style.display = 'none');
+
+    const opt = {
+        margin: 0,
+        filename: 'checkin.pdf',
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2 },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+
+    html2pdf().set(opt).from(element).outputPdf('blob').then((pdfBlob) => {
+        enviarParaDrive(pdfBlob);
+        document.getElementById('emailModal').style.display = "flex";
     });
-            }
-        
-             
-            function abrirGmail() {
-          window.location.href = "mailto:ht1bec@gmail.com?subject=Check-in de 'Seu Posto/Nome'&body=Anexe o check-in.pdf baixado em seu dispositivo.";
-        }
-        
-        
-            function fecharModal() {
-              document.getElementById('emailModal').style.display = "none";
-            }
-        
-        
-            function fecharModal() {
-              document.getElementById('emailModal').style.display = "none";
-            }
-        </script>
 
+    document.querySelectorAll('.no-print').forEach(el => el.style.display = '');
+}
 
+function enviarParaDrive(pdfBlob) {
+    const reader = new FileReader();
+    reader.readAsDataURL(pdfBlob);
+    reader.onloadend = function () {
+        const base64String = reader.result.split(',')[1]; // Remove o prefixo data:application/pdf;base64,
 
-
-
-
-    </body>
-
-    </html>
-</body>
-
-</html>
+        fetch("https://script.google.com/macros/s/AKfycby72X-TL4uV8_WBZXSBJ7IvJimCEFFi3kmEZPBY0z4ggzY173wTW8RRplj_jXTtYTgfWA/exec", {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: new URLSearchParams({ file: base64String })
+        })
+        .then(response => response.text())
+        .then(result => console.log(result))
+        .catch(error => console.error("Erro ao enviar para o Google Drive:", error));
+    };
+}
