@@ -281,7 +281,7 @@
 
     <head>
         <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=0.7,maximum-scale=0.7, user-scalable=no"> 
+        <meta name="viewport" content="width=device-width, initial-scale=0.5,maximum-scale=0.7, user-scalable=no"> 
         <title>Check-in</title>
         <style>
             body {
@@ -724,64 +724,92 @@
 			<br>
 			<br>
 		</div>
-        <!-- Botão fora do layout, não incluso no PDF -->
-		<div class="no-print" style="text-align: center; margin-top: 20px;">
-				
-			<button class="botao-checkin" onclick="enviarCheckIn()">Gerar Check-in</button>
-				
-		</div>
-
-        <!-- Biblioteca html2pdf -->
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.9.2/html2pdf.bundle.min.js"></script>
 
 
-        <!-- Modal de Confirmação -->
-        <div id="emailModal" class="modal">
-            <div class="modal-content">
-                <h2>Check-in Gerado!</h2>
-                <p>O PDF foi baixado. Agora, anexe o arquivo e envie por e-mail.</p>
-                <button class="btn-email" onclick="abrirGmail()">Abrir E-mail</button>
-                <button class="btn-close" onclick="fecharModal()">Fechar</button>
-					
-            </div>
-        </div>
+<!-- Botão para gerar o PDF -->
+<div class="no-print" style="text-align: center; margin-top: 20px;">
+    <button class="botao-checkin" onclick="enviarCheckIn()">Gerar Check-in</button>
+</div>
 
+<!-- Biblioteca html2pdf -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.9.2/html2pdf.bundle.min.js"></script>
 
-        <script>
+<!-- Modal de Confirmação -->
+<div id="emailModal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <h2>Check-in Gerado!</h2>
+        <p>O PDF foi baixado e enviado para o Google Drive.</p>
+       
+        <button class="btn-close" onclick="fecharModal()">Fechar</button>
+    </div>
+</div>
+
+<script>
 function enviarCheckIn() {
     const element = document.getElementById('checkin-form');
 
-    document.querySelectorAll('.no-print').forEach(el => el.style.display = 'none');
+    // Capturar o nome digitado no campo "Nome Completo"
+let nomePessoa = document.querySelector('.identificacao-hospede input:nth-of-type(2)').value.trim();// Ajuste o seletor caso necessário
+    
+    // Define o nome do arquivo (se vazio, usa "Check-in.pdf")
+    let nomeArquivo = nomePessoa ? nomePessoa.replace(/\s+/g, "_") + ".pdf" : "Check-in.pdf";
+
+    // Esconder elementos que não devem aparecer no PDF
+    const elementosNoPrint = document.querySelectorAll('.no-print');
+    elementosNoPrint.forEach(el => el.style.display = 'none');
 
     const opt = {
         margin: 0,
-        filename: 'checkin.pdf',
+        filename: nomeArquivo,
         image: { type: 'jpeg', quality: 0.98 },
         html2canvas: { scale: 2 },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
     };
 
     html2pdf().set(opt).from(element).outputPdf('blob').then((pdfBlob) => {
-        enviarParaDrive(pdfBlob);
+        // Reexibir os elementos ocultos após a conversão
+        elementosNoPrint.forEach(el => el.style.display = '');
+
+        // Criar URL para baixar o arquivo no dispositivo do usuário
+        const url = URL.createObjectURL(pdfBlob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = nomeArquivo;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        // Enviar automaticamente para o Google Drive
+        enviarParaDrive(pdfBlob, nomeArquivo);
+
+        // Exibir modal de confirmação
         document.getElementById('emailModal').style.display = "flex";
     });
-
-    document.querySelectorAll('.no-print').forEach(el => el.style.display = '');
 }
 
-function enviarParaDrive(pdfBlob) {
+function enviarParaDrive(pdfBlob, nomeArquivo) {
     const reader = new FileReader();
     reader.readAsDataURL(pdfBlob);
     reader.onloadend = function () {
-        const base64String = reader.result.split(',')[1]; // Remove o prefixo data:application/pdf;base64,
+        const base64String = reader.result.split(',')[1];
 
         fetch("https://script.google.com/macros/s/AKfycby72X-TL4uV8_WBZXSBJ7IvJimCEFFi3kmEZPBY0z4ggzY173wTW8RRplj_jXTtYTgfWA/exec", {
             method: "POST",
             headers: { "Content-Type": "application/x-www-form-urlencoded" },
-            body: new URLSearchParams({ file: base64String })
+            body: new URLSearchParams({ file: base64String, filename: nomeArquivo })
         })
         .then(response => response.text())
-        .then(result => console.log(result))
+        .then(result => console.log("PDF enviado ao Google Drive:", result))
         .catch(error => console.error("Erro ao enviar para o Google Drive:", error));
     };
 }
+
+function abrirGmail() {
+    window.location.href = "mailto:ht1bec@gmail.com?subject=Check-in de 'Seu Posto/Nome'&body=Anexe o check-in.pdf baixado em seu dispositivo.";
+}
+
+function fecharModal() {
+    document.getElementById('emailModal').style.display = "none";
+}
+</script>
